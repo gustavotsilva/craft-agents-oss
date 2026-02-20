@@ -1,5 +1,8 @@
-// Capture errors in the isolated preload context and forward to Sentry
-import '@sentry/electron/preload'
+// Capture errors in the isolated preload context and forward to Sentry.
+// Only loaded when Sentry is configured (SENTRY_ELECTRON_INGEST_URL is set).
+if (process.env.SENTRY_ELECTRON_INGEST_URL) {
+  require('@sentry/electron/preload')
+}
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS, type SessionEvent, type ElectronAPI, type FileAttachment, type LlmConnectionSetup } from '../shared/types'
 

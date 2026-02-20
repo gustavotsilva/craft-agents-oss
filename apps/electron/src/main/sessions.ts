@@ -1,5 +1,14 @@
 import { app } from 'electron'
-import * as Sentry from '@sentry/electron/main'
+
+// Lazy Sentry accessor — no-ops when Sentry isn't loaded (no SENTRY_ELECTRON_INGEST_URL).
+// @sentry/electron must not be imported at module level because it accesses app.getAppPath()
+// during module evaluation, which crashes before the Electron app is fully initialized.
+const _sentryNoop = { captureException: () => {} }
+function _getSentry(): { captureException: (...args: any[]) => void } {
+  if (!process.env.SENTRY_ELECTRON_INGEST_URL) return _sentryNoop
+  try { return require('@sentry/electron/main') } catch { return _sentryNoop }
+}
+const Sentry = { captureException: (...args: any[]) => _getSentry().captureException(...args) }
 import { basename, join } from 'path'
 import { existsSync } from 'fs'
 import { rm, readFile, mkdir, writeFile, rename, open } from 'fs/promises'

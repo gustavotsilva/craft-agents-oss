@@ -213,8 +213,13 @@ function getElectronEnv(): Record<string, string> {
   // It checks: CODEX_PATH env var > bundled binary > local dev fork > system PATH.
   // You can override with CODEX_PATH env var if needed for debugging.
 
+  // ELECTRON_RUN_AS_NODE makes the Electron binary behave as plain Node.js,
+  // which breaks require('electron') built-in module resolution. This env var
+  // is commonly inherited from VS Code extensions or other Electron-based tools.
+  const { ELECTRON_RUN_AS_NODE: _, ...cleanEnv } = process.env as Record<string, string>;
+
   return {
-    ...process.env as Record<string, string>,
+    ...cleanEnv,
     VITE_DEV_SERVER_URL: `http://localhost:${vitePort}`,
     CRAFT_CONFIG_DIR: process.env.CRAFT_CONFIG_DIR || "",
     CRAFT_APP_NAME: process.env.CRAFT_APP_NAME || "Craft Agents",
@@ -237,7 +242,7 @@ async function runEsbuild(
       platform: "node",
       format: "cjs",
       outfile: join(ROOT_DIR, outfile),
-      external: ["electron"],
+      external: ["electron", "@sentry/electron", "@sentry/electron/main"],
       ...(options.packagesExternal ? { packages: "external" as const } : {}),
       define: defines,
       logLevel: "warning",
@@ -413,7 +418,7 @@ async function main(): Promise<void> {
     platform: "node",
     format: "cjs",
     outfile: join(ROOT_DIR, "apps/electron/dist/main.cjs"),
-    external: ["electron"],
+    external: ["electron", "@sentry/electron", "@sentry/electron/main"],
     define: oauthDefines,
     logLevel: "info",
   });
@@ -428,7 +433,7 @@ async function main(): Promise<void> {
     platform: "node",
     format: "cjs",
     outfile: join(ROOT_DIR, "apps/electron/dist/preload.cjs"),
-    external: ["electron"],
+    external: ["electron", "@sentry/electron", "@sentry/electron/preload"],
     logLevel: "info",
   });
   await preloadContext.watch();
