@@ -54,20 +54,6 @@ bun run electron:dev               # Dev mode with hot reload (primary command)
 bun run electron:dev:logs          # Open log tail in separate Terminal window
 ```
 
-### Build & Run
-```bash
-bun run electron:build             # Build everything (main + preload + renderer + resources)
-bun run electron:start             # Build + run the app
-```
-
-### Build Individual Pieces
-```bash
-bun run electron:build:main        # esbuild → main process (dist/main.cjs)
-bun run electron:build:preload     # esbuild → preload script (dist/preload.cjs)
-bun run electron:build:renderer    # Vite → React app (dist/renderer/)
-bun run electron:build:resources   # Copy icons and assets
-```
-
 ### Type Check & Lint
 ```bash
 bun run typecheck:all              # Type check core + shared packages
@@ -85,8 +71,6 @@ bun run electron:dist              # All platforms
 ### Utilities
 ```bash
 bun test                           # Run tests
-bun run fresh-start                # Reset all local config (~/.craft-agent/)
-bun run print:system-prompt        # Print the system prompt sent to Claude
 ```
 
 ## Troubleshooting
