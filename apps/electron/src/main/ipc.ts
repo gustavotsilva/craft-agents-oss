@@ -461,6 +461,13 @@ export function registerIpcHandlers(sessionManager: SessionManager, windowManage
       await sessionManager.waitForInit()
     } catch (error) {
       ipcLog.error('GET_SESSIONS continuing after initialization failure:', error)
+      // Fallback: load sessions from disk so sidebar still shows history (e.g. when init
+      // failed on Bun/SDK path but config and session files are readable). See BUG-session-persistence-packaged-app.md
+      try {
+        sessionManager.reloadSessions()
+      } catch (reloadErr) {
+        ipcLog.error('GET_SESSIONS reloadSessions fallback failed:', reloadErr)
+      }
     }
     const end = perf.start('ipc.getSessions')
     const workspaceId = windowManager.getWorkspaceForWindow(event.sender.id)

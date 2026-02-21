@@ -2,14 +2,15 @@ import log from 'electron-log/main'
 import { app } from 'electron'
 
 /**
- * Debug mode is enabled when running from source (not packaged) or with --debug flag.
- * - true: `bun run electron:start` or `electron .` or packaged app with `--debug`
- * - false: bundled .app/.exe release without --debug flag
+ * Debug mode is enabled when running from source (not packaged), with --debug flag, or CRAFT_DEBUG=1.
+ * - true: `bun run electron:start` or `electron .` or packaged app with `--debug` or env CRAFT_DEBUG=1
+ * - false: bundled .app/.exe release without --debug and without CRAFT_DEBUG
  *
+ * Packaged app: set CRAFT_DEBUG=1 when launching to get file/console logs (e.g. to debug session load).
  * Note: We guard against app being undefined for build verification (node --check)
  * which runs outside of Electron context.
  */
-export const isDebugMode = !app?.isPackaged || process.argv.includes('--debug')
+export const isDebugMode = !app?.isPackaged || process.argv.includes('--debug') || process.env.CRAFT_DEBUG === '1'
 
 // Configure transports based on debug mode
 if (isDebugMode) {

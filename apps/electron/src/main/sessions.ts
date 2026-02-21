@@ -102,7 +102,7 @@ export { sanitizeForTitle }
 
 /**
  * Get the path to the bundled Bun executable.
- * - Packaged app: returns path to bundled Bun in vendor/bun
+ * - Packaged app: returns path to bundled Bun in vendor/bun (or vendor/bun/darwin-{arch} on macOS).
  * - Development: returns undefined (caller should use system 'bun' command)
  *
  * Used for:
@@ -119,8 +119,15 @@ function getBundledBunPath(): string | undefined {
   // On Windows, bun.exe is in extraResources (process.resourcesPath) to avoid EBUSY errors.
   // On macOS/Linux, bun is in the app files (basePath). See electron-builder.yml for details.
   const bunBasePath = process.platform === 'win32' ? process.resourcesPath : basePath
-  const bunPath = join(bunBasePath, 'vendor', 'bun', bunBinary)
+  const vendorBun = join(bunBasePath, 'vendor', 'bun')
 
+  // macOS: prefer platform-arch subdir (e.g. darwin-arm64/bun) so one app bundle can ship both archs.
+  if (process.platform === 'darwin') {
+    const archDir = join(vendorBun, `darwin-${process.arch}`, bunBinary)
+    if (existsSync(archDir)) return archDir
+  }
+
+  const bunPath = join(vendorBun, bunBinary)
   if (!existsSync(bunPath)) {
     sessionLog.warn(`Bundled Bun not found at ${bunPath}`)
     return undefined
@@ -1451,14 +1458,19 @@ export class SessionManager {
         const monorepoRoot = join(basePath, '..', '..')
         interceptorPath = join(monorepoRoot, interceptorRelativePath)
       }
-      if (!existsSync(interceptorPath)) {
+      if (app.isPackaged && !existsSync(interceptorPath)) {
+        // Packaged app: path can differ by build layout; don't fail init or sessions won't load.
+        // See: docs/BUG-session-persistence-packaged-app.md
+        sessionLog.warn('Network interceptor not found at', interceptorPath, '— SDK will run without fetch interceptor')
+      } else if (!existsSync(interceptorPath)) {
         const error = `Network interceptor not found at ${interceptorPath}. The app package may be corrupted.`
         sessionLog.error(error)
         throw new Error(error)
+      } else {
+        // Set interceptor path (used for --preload flag with bun)
+        sessionLog.info('Setting interceptorPath:', interceptorPath)
+        setInterceptorPath(interceptorPath)
       }
-      // Set interceptor path (used for --preload flag with bun)
-      sessionLog.info('Setting interceptorPath:', interceptorPath)
-      setInterceptorPath(interceptorPath)
 
       // Resolve Copilot network interceptor (loaded via NODE_OPTIONS="--require ..." into Copilot CLI subprocess)
       // Must be bundled CJS since it runs under Electron's Node.js, not Bun
@@ -1476,17 +1488,15 @@ export class SessionManager {
         sessionLog.warn('Copilot network interceptor not found — run `bun run build:copilot-interceptor` in apps/electron/')
       }
 
-      // In packaged app: use bundled Bun binary
+      // In packaged app: use bundled Bun binary when present; otherwise SDK may use system bun from PATH
       // In development: use system 'bun' command (no need to set executable)
       const bundledBunPath = getBundledBunPath()
-      if (app.isPackaged) {
-        if (!bundledBunPath) {
-          const error = 'Bundled Bun runtime not found. The app package may be corrupted.'
-          sessionLog.error(error)
-          throw new Error(error)
-        }
+      if (app.isPackaged && bundledBunPath) {
         sessionLog.info('Setting executable:', bundledBunPath)
         setExecutable(bundledBunPath)
+      } else if (app.isPackaged && !bundledBunPath) {
+        // Don't fail init: session history must load. Claude SDK will try system `bun` from PATH.
+        sessionLog.warn('Bundled Bun not found at vendor/bun — SDK will use system bun from PATH if available. Session list will still load.')
       }
 
       // Backfill missing `models` arrays on existing LLM connections
